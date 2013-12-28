@@ -102,7 +102,7 @@ QRgb MainWindow::pixelColor(int iterations_count, int max_iterations)
 
     default:
         // "rainbow-ish"
-        L = (1 - double(iterations_count) / max_iterations) * 100.;
+        L = (double(iterations_count) / max_iterations) * 100.;
         if (L <= 0) return QColor(0, 0, 0).rgb();
         else if (L < 20) return QColor(255 - d * L, 0, 255).rgb();
         else if (L < 40) return QColor(0, d * (L - 20), 255).rgb();
