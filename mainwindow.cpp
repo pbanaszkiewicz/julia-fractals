@@ -35,7 +35,7 @@ void MainWindow::on_pbRun_clicked()
     int i, max_iterations = ui->sliderMaxIt->value();
     bool AA = ui->cbAntialiasing->isChecked();
     double a = ui->parameterA->value(), b = ui->parameterB->value();
-    double limit = 2.0;
+    double limit = ui->escapeLimit->value();
 
     for (int x = 0; x < ui->image->width(); x++)
     {
@@ -77,6 +77,7 @@ void MainWindow::on_pbRun_clicked()
 QRgb MainWindow::pixelColor(int iterations_count, int max_iterations)
 {
     double r, g, b;
+    double L, d = 256. / 20.;
 
     switch (ui->cbColoring->currentIndex())
     {
@@ -101,8 +102,14 @@ QRgb MainWindow::pixelColor(int iterations_count, int max_iterations)
 
     default:
         // "rainbow-ish"
-        // NOT IMPLEMENTED
-        return QColor(0, 0, 0).rgb();
+        L = (1 - double(iterations_count) / max_iterations) * 100.;
+        if (L <= 0) return QColor(0, 0, 0).rgb();
+        else if (L < 20) return QColor(255 - d * L, 0, 255).rgb();
+        else if (L < 40) return QColor(0, d * (L - 20), 255).rgb();
+        else if (L < 60) return QColor(0, 255, 255 - d * (L - 40)).rgb();
+        else if (L < 80) return QColor(d * (L - 60), 255, 0).rgb();
+        else if (L < 100) return QColor(255, 255 - d * (L - 80), 0).rgb();
+        else return QColor(0, 0, 0).rgb();
     }
 }
 
