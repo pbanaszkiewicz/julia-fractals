@@ -2,12 +2,17 @@
 #include "ui_mainwindow.h"
 
 #include <cmath>
+#include <vector>
+#include <algorithm>
+#include <numeric>
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+
+    updateSliderLabels();
 }
 
 MainWindow::~MainWindow()
@@ -19,7 +24,7 @@ MainWindow::~MainWindow()
 
 void MainWindow::on_pbRun_clicked()
 {
-    qDebug() << ui->image->size();
+    QApplication::setOverrideCursor(Qt::BusyCursor);
 
     if (!scale) delete scale;
     scale = new Scale(2.5, 2.5, ui->image->width(), ui->image->height());
@@ -27,16 +32,9 @@ void MainWindow::on_pbRun_clicked()
     if (!image) delete image;
     image = new QImage(ui->image->width(), ui->image->height(), QImage::Format_RGB32);
 
-//    ScreenPoint p = scale->castToScreen(RealPoint(0, 0));
-
-//    image->setPixel(p.x, p.y, qRgb(255, 255, 255));
-//    ui->image->setPixmap(QPixmap::fromImage(*image));
-
-//    RealPoint s = scale->castToReal(ScreenPoint(ui->image->width(), ui->image->height()));
-//    qDebug() << s.x << s.y;
-
-    bool mark_white = false;
-    double a = 0.238, b = 0.519;
+    int i, max_iterations = ui->sliderMaxIt->value();
+    bool AA = ui->cbAntialiasing->isChecked();
+    double a = ui->parameterA->value(), b = ui->parameterB->value();
     double limit = 2.0;
 
     for (int x = 0; x < ui->image->width(); x++)
@@ -44,25 +42,93 @@ void MainWindow::on_pbRun_clicked()
         for (int y = 0; y < ui->image->height(); y++)
         {
             RealPoint R = scale->castToReal(ScreenPoint(x, y));
-            mark_white = true;
 
-            for (int i = 0; i < 250; i++)
+            i = computeEscape(R, a, b, limit, max_iterations);
+
+            if (AA)
             {
-                double tmp = R.x * R.x - R.y * R.y + a;
-                R.y = 2 * R.x * R.y + b;
-                R.x = tmp;
+                double dx = scale->r_w / scale->s_w / 4.0, dy = scale->r_h / scale->s_h / 4.0;
 
-                if (std::sqrt(R.x * R.x + R.y * R.y) > limit)
-                {
-                    mark_white = false;
-                    break;
-                }
+                std::vector<int> v;
+                v.push_back(i);
+                v.push_back(computeEscape(RealPoint(R.x - dx, R.y - dy), a, b, limit, max_iterations));
+                v.push_back(computeEscape(RealPoint(R.x - dx, R.y + dy), a, b, limit, max_iterations));
+                v.push_back(computeEscape(RealPoint(R.x + dx, R.y + dy), a, b, limit, max_iterations));
+                v.push_back(computeEscape(RealPoint(R.x + dx, R.y - dy), a, b, limit, max_iterations));
+
+                // count min escape value
+                //std::vector<int>::iterator min = std::min_element(v.begin(), v.end());
+                //i = *min;
+
+                // count average escape value
+                i = std::accumulate(v.begin(), v.end(), 0) / v.size();
             }
 
-            if (mark_white)
-                image->setPixel(x, y, qRgb(255, 255, 255));
+            image->setPixel(x, y, pixelColor(i, max_iterations));
         }
     }
 
     ui->image->setPixmap(QPixmap::fromImage(*image));
+
+    QApplication::restoreOverrideCursor();
+}
+
+
+QRgb MainWindow::pixelColor(int iterations_count, int max_iterations)
+{
+    double r, g, b;
+
+    switch (ui->cbColoring->currentIndex())
+    {
+    case 0:
+        // "black-white"
+        if (iterations_count >= max_iterations) return QColor(255, 255, 255).rgb();
+        else return QColor(0, 0, 0).rgb();
+
+    case 1:
+        // "gray"
+        return QColor(iterations_count / max_iterations * 255, iterations_count / max_iterations * 255, iterations_count / max_iterations * 255).rgb();
+
+    case 2:
+        // "trigonometric"
+        r = 127.0 * (1 - std::cos(M_PI * iterations_count / max_iterations));
+        if (r < 0) r = 0;
+        g = 127.0 * (1 - std::cos(1.5 * M_PI * iterations_count / max_iterations));
+        if (g < 0) g = 0;
+        b = 127.0 * (1 - std::cos(1.9 * M_PI * iterations_count / max_iterations));
+        if (b < 0) b = 0;
+        return QColor(r, g, b).rgb();
+
+    default:
+        // "rainbow-ish"
+        // NOT IMPLEMENTED
+        return QColor(0, 0, 0).rgb();
+    }
+}
+
+void MainWindow::updateSliderLabels()
+{
+    ui->LMaxIt->setText(QString::number(ui->sliderMaxIt->value()));
+}
+
+void MainWindow::on_sliderMaxIt_valueChanged(int value)
+{
+    ui->LMaxIt->setText(QString::number(value));
+}
+
+int MainWindow::computeEscape(RealPoint R, double param_a, double param_b, double limit, int max_iterations)
+{
+    int i;
+    for (i = 0; i < max_iterations; i++)
+    {
+        double tmp = R.x * R.x - R.y * R.y + param_a;
+        R.y = 2 * R.x * R.y + param_b;
+        R.x = tmp;
+
+        if (std::sqrt(R.x * R.x + R.y * R.y) > limit)
+        {
+            break;
+        }
+    }
+    return i;
 }
