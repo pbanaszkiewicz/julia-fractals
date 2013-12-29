@@ -3,6 +3,7 @@
 
 #include <cmath>
 #include <vector>
+#include <map>
 #include <algorithm>
 #include <numeric>
 
@@ -41,41 +42,15 @@ void MainWindow::on_pbRun_clicked()
     if (!image) delete image;
     image = new QImage(ui->image->width(), ui->image->height(), QImage::Format_RGB32);
 
-    int i, max_iterations = ui->sliderMaxIt->value();
+    int max_iterations = ui->sliderMaxIt->value();
     bool AA = ui->cbAntialiasing->isChecked();
     double a = ui->parameterA->value(), b = ui->parameterB->value();
     double limit = ui->escapeLimit->value();
 
-    for (int x = 0; x < ui->image->width(); x++)
-    {
-        for (int y = 0; y < ui->image->height(); y++)
-        {
-            RealPoint R = scale->castToReal(ScreenPoint(x, y));
-
-            i = computeEscape(R, a, b, limit, max_iterations);
-
-            if (AA)
-            {
-                double dx = scale->r_w / scale->s_w / 4.0, dy = scale->r_h / scale->s_h / 4.0;
-
-                std::vector<int> v;
-                v.push_back(i);
-                v.push_back(computeEscape(RealPoint(R.x - dx, R.y - dy), a, b, limit, max_iterations));
-                v.push_back(computeEscape(RealPoint(R.x - dx, R.y + dy), a, b, limit, max_iterations));
-                v.push_back(computeEscape(RealPoint(R.x + dx, R.y + dy), a, b, limit, max_iterations));
-                v.push_back(computeEscape(RealPoint(R.x + dx, R.y - dy), a, b, limit, max_iterations));
-
-                // count min escape value
-                //std::vector<int>::iterator min = std::min_element(v.begin(), v.end());
-                //i = *min;
-
-                // count average escape value
-                i = std::accumulate(v.begin(), v.end(), 0) / v.size();
-            }
-
-            image->setPixel(x, y, pixelColor(i, max_iterations));
-        }
-    }
+    if (ui->cbHistogram->isChecked())
+        histogramMethod(scale, image, a, b, limit, max_iterations);
+    else
+        iterationEscapeMethod(scale, image, a, b, limit, max_iterations, AA);
 
     ui->image->setPixmap(QPixmap::fromImage(*image));
 
@@ -89,9 +64,84 @@ void MainWindow::on_pbRun_clicked()
     QApplication::restoreOverrideCursor();
 }
 
+void MainWindow::histogramMethod(Scale *scale, QImage *image, double param_a, double param_b, double limit, int max_iterations)
+{
+//    int **iterations = new int[image->width()][image->height()];
+//    std::vector<std::vector<int> > iterations;
+    int **iterations = new int* [image->width()];
+    for (int i = 0; i < image->width(); i++)
+        iterations[i] = new int[image->height()];
+
+    int value, total = 0;
+    std::map<int, int> histogram;
+
+    for (int x = 0; x < image->width(); x++)
+    {
+        for (int y = 0; y < image->height(); y++)
+        {
+            RealPoint R = scale->castToReal(ScreenPoint(x, y));
+            value = computeEscape(R, param_a, param_b, limit, max_iterations);
+            iterations[x][y] = value;
+            histogram[value] += 1;
+            total += 1;
+        }
+    }
+
+    double hue;
+    for (int x = 0; x < image->width(); x++)
+    {
+        for (int y = 0; y < image->height(); y++)
+        {
+            hue = double(histogram[iterations[x][y]]) / double(total);
+//            qDebug() << hue;
+            image->setPixel(x, y, QColor::fromHsvF(hue, 0.5, 0.7).rgb());
+        }
+    }
+
+    for (int i = 0; i < image->width(); i++)
+        delete [] iterations[i];
+    delete [] iterations;
+}
+
+void MainWindow::iterationEscapeMethod(Scale *scale, QImage *image, double param_a, double param_b, double limit, int max_iterations, bool antialiasing=false)
+{
+    int i;
+
+    for (int x = 0; x < image->width(); x++)
+    {
+        for (int y = 0; y < image->height(); y++)
+        {
+            RealPoint R = scale->castToReal(ScreenPoint(x, y));
+
+            i = computeEscape(R, param_a, param_b, limit, max_iterations);
+
+            if (antialiasing)
+            {
+                double dx = scale->r_w / scale->s_w / 4.0, dy = scale->r_h / scale->s_h / 4.0;
+
+                std::vector<int> v;
+                v.push_back(i);
+                v.push_back(computeEscape(RealPoint(R.x - dx, R.y - dy), param_a, param_b, limit, max_iterations));
+                v.push_back(computeEscape(RealPoint(R.x - dx, R.y + dy), param_a, param_b, limit, max_iterations));
+                v.push_back(computeEscape(RealPoint(R.x + dx, R.y + dy), param_a, param_b, limit, max_iterations));
+                v.push_back(computeEscape(RealPoint(R.x + dx, R.y - dy), param_a, param_b, limit, max_iterations));
+
+                // count min escape value
+                //std::vector<int>::iterator min = std::min_element(v.begin(), v.end());
+                //i = *min;
+
+                // count average escape value
+                i = std::accumulate(v.begin(), v.end(), 0) / v.size();
+            }
+
+            image->setPixel(x, y, pixelColor(i, max_iterations));
+        }
+    }
+}
 
 QRgb MainWindow::pixelColor(int iterations_count, int max_iterations)
 {
+//    qDebug() << iterations_count << max_iterations;
     double r, g, b;
     double L, d = 256. / 20.;
 
@@ -104,7 +154,9 @@ QRgb MainWindow::pixelColor(int iterations_count, int max_iterations)
 
     case 1:
         // "gray"
-        return QColor(iterations_count / max_iterations * 255, iterations_count / max_iterations * 255, iterations_count / max_iterations * 255).rgb();
+        return QColor(double(iterations_count) / max_iterations * 255,
+                      double(iterations_count) / max_iterations * 255,
+                      double(iterations_count) / max_iterations * 255).rgb();
 
     case 2:
         // "trigonometric"
