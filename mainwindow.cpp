@@ -12,7 +12,7 @@ MainWindow::MainWindow(QWidget *parent) :
 {
     ui->setupUi(this);
 
-    updateSliderLabels();
+    ui->LMaxIt->setText(QString::number(ui->sliderMaxIt->value()));
 }
 
 MainWindow::~MainWindow()
@@ -25,6 +25,15 @@ MainWindow::~MainWindow()
 void MainWindow::on_pbRun_clicked()
 {
     QApplication::setOverrideCursor(Qt::BusyCursor);
+    // FIX: apparently disabling doesn't have visible change.
+    //      Maybe introduce a worker thread.
+    ui->cbColoring->setEnabled(false);
+    ui->parameterA->setEnabled(false);
+    ui->parameterB->setEnabled(false);
+    ui->sliderMaxIt->setEnabled(false);
+    ui->cbAntialiasing->setEnabled(false);
+    ui->pbRun->setEnabled(false);
+    ////////////////////////////////////////////////
 
     if (!scale) delete scale;
     scale = new Scale(2.5, 2.5, ui->image->width(), ui->image->height());
@@ -70,6 +79,13 @@ void MainWindow::on_pbRun_clicked()
 
     ui->image->setPixmap(QPixmap::fromImage(*image));
 
+    ////////////////////////////////////////////////
+    ui->cbColoring->setEnabled(true);
+    ui->parameterA->setEnabled(true);
+    ui->parameterB->setEnabled(true);
+    ui->sliderMaxIt->setEnabled(true);
+    ui->cbAntialiasing->setEnabled(true);
+    ui->pbRun->setEnabled(true);
     QApplication::restoreOverrideCursor();
 }
 
@@ -111,11 +127,6 @@ QRgb MainWindow::pixelColor(int iterations_count, int max_iterations)
         else if (L < 100) return QColor(255, 255 - d * (L - 80), 0).rgb();
         else return QColor(0, 0, 0).rgb();
     }
-}
-
-void MainWindow::updateSliderLabels()
-{
-    ui->LMaxIt->setText(QString::number(ui->sliderMaxIt->value()));
 }
 
 void MainWindow::on_sliderMaxIt_valueChanged(int value)

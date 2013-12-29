@@ -32,7 +32,6 @@ private:
     QGraphicsScene *scene;
 
     QRgb pixelColor(int iterations_count, int max_iterations);
-    void updateSliderLabels();
     int computeEscape(RealPoint R, double param_a, double param_b, double limit, int max_iterations);
 };
 
