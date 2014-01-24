@@ -36,6 +36,7 @@ private:
     int computeEscape(RealPoint R, double param_a, double param_b, double limit, int max_iterations);
 
     void histogramMethod(Scale *scale, QImage *image, double param_a, double param_b, double limit, int max_iterations);
+    void normalizedMethod(Scale *scale, QImage *image, double param_a, double param_b, double limit, int max_iterations);
     void iterationEscapeMethod(Scale *scale, QImage *image, double param_a, double param_b, double limit, int max_iterations, bool antialiasing);
 };
 

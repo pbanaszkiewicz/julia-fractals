@@ -195,6 +195,13 @@
           </property>
          </widget>
         </item>
+        <item>
+         <widget class="QCheckBox" name="cbNormalized">
+          <property name="text">
+           <string>Normalized iteration</string>
+          </property>
+         </widget>
+        </item>
        </layout>
       </item>
      </layout>
@@ -220,6 +227,16 @@
   <widget class="QStatusBar" name="statusBar"/>
  </widget>
  <layoutdefault spacing="6" margin="11"/>
+ <tabstops>
+  <tabstop>pbRun</tabstop>
+  <tabstop>cbColoring</tabstop>
+  <tabstop>parameterA</tabstop>
+  <tabstop>parameterB</tabstop>
+  <tabstop>escapeLimit</tabstop>
+  <tabstop>sliderMaxIt</tabstop>
+  <tabstop>cbAntialiasing</tabstop>
+  <tabstop>cbHistogram</tabstop>
+ </tabstops>
  <resources/>
  <connections/>
 </ui>

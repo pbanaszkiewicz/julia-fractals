@@ -103,6 +103,36 @@ void MainWindow::histogramMethod(Scale *scale, QImage *image, double param_a, do
     delete [] iterations;
 }
 
+void MainWindow::normalizedMethod(Scale *scale, QImage *image, double param_a, double param_b, double limit, int max_iterations)
+{
+    double iteration = 0;
+    double zn, nu;
+    RealPoint R(0, 0);
+    double x = 0.0, y = 0.0, xtemp = 0;
+
+    for (int x = 0; x < image->width(); x++)
+    {
+        for (int y = 0; y < image->height(); y++)
+        {
+            R = scale->castToReal(ScreenPoint(x, y));
+            while (x * x + y * y < (2 << 16) && iteration < max_iterations)
+            {
+                xtemp = x * x - y * y + R.x;
+                y = 2 * x * y + R.y;
+                x = xtemp;
+                iteration = iteration + 1;
+            }
+
+            if (iteration < max_iterations) {
+                zn = std::sqrt(x * x + y * y);
+                nu = std::log(std::log(zn) / std::log(2)) / std::log(2);
+                iteration = iteration + 1 - nu;
+            }
+
+        }
+    }
+}
+
 void MainWindow::iterationEscapeMethod(Scale *scale, QImage *image, double param_a, double param_b, double limit, int max_iterations, bool antialiasing=false)
 {
     int i;
@@ -189,13 +219,14 @@ void MainWindow::on_sliderMaxIt_valueChanged(int value)
 int MainWindow::computeEscape(RealPoint R, double param_a, double param_b, double limit, int max_iterations)
 {
     int i;
+    limit *= limit;
     for (i = 0; i < max_iterations; i++)
     {
         double tmp = R.x * R.x - R.y * R.y + param_a;
         R.y = 2 * R.x * R.y + param_b;
         R.x = tmp;
 
-        if (std::sqrt(R.x * R.x + R.y * R.y) > limit)
+        if (R.x * R.x + R.y * R.y > limit)
         {
             break;
         }
